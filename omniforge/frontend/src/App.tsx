@@ -11,6 +11,7 @@ import AudioWorkspace from './workspaces/AudioWorkspace';
 import CheckerWorkspace from './workspaces/CheckerWorkspace';
 import MovesetWorkspace from './workspaces/MovesetWorkspace';
 import StatesWorkspace from './workspaces/StatesWorkspace';
+import LibraryWorkspace from './workspaces/LibraryWorkspace';
 import { useProjectStore, type Project } from './store/projectStore';
 
 // ── Workspace Definitions ────────────────────────────────────────
@@ -294,6 +295,7 @@ function Inspector() {
 // ── Canvas Placeholder ───────────────────────────────────────────
 
 function CanvasArea({ workspace }: { workspace: WorkspaceId }) {
+  if (workspace === 'home') return <LibraryWorkspace />;
   if (workspace === 'image') return <ImageWorkspace />;
   if (workspace === 'animation') return <AnimationWorkspace />;
   if (workspace === 'audio') return <AudioWorkspace />;
