@@ -20,6 +20,7 @@ from .routers import project as project_router
 from .routers import images as images_router
 from .routers import animations as animation_router
 from .routers import audio as audio_router
+from .routers import bridge as bridge_router
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 
@@ -184,9 +185,17 @@ app.include_router(project_router.router)
 app.include_router(images_router.router)
 app.include_router(animation_router.router)
 app.include_router(audio_router.router)
+app.include_router(bridge_router.router)
 
 
 # ── Health Check ─────────────────────────────────────────────────────────────
+
+from .bridge.websocket_server import bridge_server
+
+@app.on_event("startup")
+async def startup_event():
+    # Start the bridge server in the background
+    asyncio.create_task(bridge_server.start())
 
 @app.get("/api/health")
 async def health_check() -> dict[str, Any]:

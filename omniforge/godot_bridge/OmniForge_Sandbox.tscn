@@ -1,0 +1,34 @@
+[gd_scene load_steps=2 format=3 uid="uid://omniforge-sandbox"]
+
+[gd_script type="GDScript" id="GDScript_sandbox"]
+script/source = "extends Node2D
+
+@onready var sprite = $Sprite2D
+@onready var audio = $AudioStreamPlayer
+
+func setup_sprite(path: String):
+	var tex = load(path)
+	if tex:
+		sprite.texture = tex
+		# Center it
+		sprite.position = get_viewport_rect().size / 2
+
+func play_audio(path: String):
+	var stream = load(path)
+	if stream:
+		audio.stream = stream
+		audio.play()
+"
+
+[node name="OmniForge_Sandbox" type="Node2D"]
+script = SubResource("GDScript_sandbox")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+offset_right = 1152.0
+offset_bottom = 648.0
+color = Color(0.0509804, 0.0588235, 0.0784314, 1)
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(576, 324)
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
