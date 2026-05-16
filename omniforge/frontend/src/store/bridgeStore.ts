@@ -12,7 +12,7 @@ interface BridgeState {
   closePreview: () => Promise<void>;
 }
 
-export const useBridgeStore = create<BridgeState>((set) => ({
+export const useBridgeStore = create<BridgeState>(() => ({
   isConnected: false, // In a real app, we'd poll this from /api/health
 
   sendPreviewCommand: async (cmd, path, extra = {}) => {

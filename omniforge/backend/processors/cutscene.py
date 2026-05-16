@@ -6,7 +6,7 @@ Handles storyboard sequences and portrait generation with DNA lock.
 from __future__ import annotations
 
 import io
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Optional
 from pydantic import BaseModel
 
 

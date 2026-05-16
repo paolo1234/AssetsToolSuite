@@ -127,7 +127,7 @@ export default function LibraryWorkspace() {
       {/* Status Bar */}
       <div className="h-8 bg-of-bg-950 border-t border-of-border flex items-center px-4 justify-between">
         <div className="flex items-center gap-4">
-          <span className="text-[10px] text-of-text-dim uppercase font-bold">Project: {currentProject?.name}</span>
+          <span className="text-[10px] text-of-text-dim uppercase font-bold">Project: {currentProject?.project_name}</span>
           <span className="text-of-border">|</span>
           <span className="text-[10px] text-of-text-dim uppercase font-bold">Total Assets: {assets.length}</span>
         </div>

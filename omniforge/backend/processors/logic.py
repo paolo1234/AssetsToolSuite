@@ -5,7 +5,7 @@ Handles state machine definitions, movesets, and DNA metadata.
 
 from __future__ import annotations
 
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Optional
 from pydantic import BaseModel
 
 

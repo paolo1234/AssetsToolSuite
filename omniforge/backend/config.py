@@ -18,7 +18,9 @@ class Settings:
     BRIDGE_PORT: int = 47832
 
     # Paths
-    PROJECTS_DIR: Path = field(default_factory=lambda: Path.home() / "OmniForge" / "projects")
+    PROJECTS_DIR: Path = field(
+        default_factory=lambda: Path(os.getenv("OMNIFORGE_DATA", str(Path.home() / "OmniForge"))) / "projects"
+    )
     
     # Asset versioning
     MAX_ASSET_VERSIONS: int = 10

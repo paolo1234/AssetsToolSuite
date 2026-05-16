@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useProjectStore } from '../store/projectStore';
 
 export default function CutsceneWorkspace() {
-  const { assets, currentProject } = useProjectStore();
+  const { assets } = useProjectStore();
   const [beats, setBeats] = useState([
     { id: '1', text: 'In a distant galaxy...', imageId: null },
     { id: '2', text: 'A hero rises from the dust.', imageId: null },

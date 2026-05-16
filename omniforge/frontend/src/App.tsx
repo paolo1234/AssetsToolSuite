@@ -13,17 +13,18 @@ import MovesetWorkspace from './workspaces/MovesetWorkspace';
 import StatesWorkspace from './workspaces/StatesWorkspace';
 import LibraryWorkspace from './workspaces/LibraryWorkspace';
 import CutsceneWorkspace from './workspaces/CutsceneWorkspace';
-import { useProjectStore, type Project } from './store/projectStore';
+import { useProjectStore } from './store/projectStore';
 
 // ── Workspace Definitions ────────────────────────────────────────
-
 type WorkspaceId =
+  | 'home'
   | 'image'
   | 'animation'
   | 'audio'
   | 'ui'
   | 'checker'
   | 'moveset'
+  | 'states'
   | 'statemachine'
   | 'cutscene'
   | 'library';
@@ -35,13 +36,14 @@ interface WorkspaceTab {
 }
 
 const WORKSPACES: WorkspaceTab[] = [
+  { id: 'home', label: 'Home', icon: '🏠' },
   { id: 'image', label: 'Image', icon: '🖼️' },
   { id: 'animation', label: 'Animation', icon: '🎬' },
   { id: 'audio', label: 'Audio', icon: '🔊' },
   { id: 'ui', label: 'UI/Level', icon: '🎨' },
   { id: 'checker', label: 'Checker', icon: '✅' },
   { id: 'moveset', label: 'Moveset', icon: '🏃' },
-  { id: 'statemachine', label: 'States', icon: '🔀' },
+  { id: 'states', label: 'States', icon: '🔀' },
   { id: 'cutscene', label: 'Cutscene', icon: '🎭' },
   { id: 'library', label: 'Library', icon: '📚' },
 ];
@@ -303,7 +305,9 @@ function CanvasArea({ workspace }: { workspace: WorkspaceId }) {
   if (workspace === 'checker') return <CheckerWorkspace />;
   if (workspace === 'moveset') return <MovesetWorkspace />;
   if (workspace === 'states') return <StatesWorkspace />;
+  if (workspace === 'statemachine') return <StatesWorkspace />;
   if (workspace === 'cutscene') return <CutsceneWorkspace />;
+  if (workspace === 'library') return <LibraryWorkspace />;
   
   const label = WORKSPACES.find((w) => w.id === workspace)?.label ?? workspace;
   return (

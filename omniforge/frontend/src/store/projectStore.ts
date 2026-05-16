@@ -17,6 +17,7 @@ export interface AssetMetadata {
   loop_out?: number;
   duration_ms?: number;
   extra?: Record<string, unknown>;
+  resolution?: string;
 }
 
 export interface AssetEntry {
@@ -54,6 +55,7 @@ export interface ProjectManifest {
 export interface Project {
   id: string;
   project_name: string;
+  name?: string; // For compatibility with older references
   path: string;
   manifest?: ProjectManifest;
 }

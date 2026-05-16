@@ -3,13 +3,10 @@
  * Mapping animations to logic states (Idle, Run, Attack).
  */
 
-import { useState } from 'react';
 import { useProjectStore } from '../store/projectStore';
-import { useLogicStore } from '../store/logicStore';
 
 export default function MovesetWorkspace() {
-  const { assets, currentProject } = useProjectStore();
-  const { movesets } = useLogicStore();
+  const { assets } = useProjectStore();
   
   const states = ['Idle', 'Walk', 'Run', 'Attack', 'Jump', 'Fall', 'Hurt', 'Die'];
 
