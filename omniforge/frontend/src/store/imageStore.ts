@@ -12,10 +12,14 @@ export interface GenerationTask {
   project_id: string;
   prompt: string;
   adapter_id: string;
+  workflow_id?: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress: number;
   result_url?: string;
+  result_bytes?: Uint8Array;
   error?: string;
+  seed?: number;
+  created_at?: number;
 }
 
 interface ImageState {
@@ -24,7 +28,10 @@ interface ImageState {
   isGenerating: boolean;
   
   // Actions
-  generateImage: (projectId: string, prompt: string, adapterId: string, params?: Record<string, unknown>) => Promise<string | null>;
+  generateImage: (projectId: string, prompt: string, adapterId: string, workflowId?: string, params?: Record<string, unknown>) => Promise<string | null>;
+  upscaleImage: (taskId: string) => Promise<void>;
+  refineImage: (taskId: string) => Promise<void>;
+  deleteTask: (taskId: string) => void;
   pollTaskStatus: (taskId: string) => Promise<void>;
   processImage: (projectId: string, assetId: string, pipeline: any[]) => Promise<void>;
 }
@@ -35,13 +42,13 @@ export const useImageStore = create<ImageState>((set, get) => ({
   activeTasks: {},
   isGenerating: false,
 
-  generateImage: async (projectId, prompt, adapterId, params = {}) => {
+  generateImage: async (projectId, prompt, adapterId, workflowId = 'sprite_single', params = {}) => {
     set({ isGenerating: true });
     try {
       const res = await fetch('/api/generate/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId, prompt, adapter_id: adapterId, params }),
+        body: JSON.stringify({ project_id: projectId, prompt, adapter_id: adapterId, workflow_id: workflowId, params }),
       });
       if (!res.ok) throw new Error('Failed to start generation');
       const data = await res.json();
@@ -51,8 +58,11 @@ export const useImageStore = create<ImageState>((set, get) => ({
         project_id: projectId,
         prompt,
         adapter_id: adapterId,
+        workflow_id: workflowId,
         status: 'pending',
         progress: 0,
+        seed: params.seed || Math.floor(Math.random() * 1000000000),
+        created_at: Date.now(),
       };
 
       set((state) => ({
@@ -69,6 +79,73 @@ export const useImageStore = create<ImageState>((set, get) => ({
       console.error(e);
       return null;
     }
+  },
+
+  upscaleImage: async (taskId) => {
+    const task = get().activeTasks[taskId];
+    if (!task || !task.result_url) return;
+    
+    try {
+      const res = await fetch('/api/generate/upscale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: taskId, scale: 4 }),
+      });
+      if (!res.ok) throw new Error('Upscale failed');
+      const data = await res.json();
+      
+      set((state) => ({
+        activeTasks: { 
+          ...state.activeTasks, 
+          [taskId]: { 
+            ...state.activeTasks[taskId], 
+            result_url: data.result_url,
+            status: 'processing',
+          } 
+        },
+      }));
+      
+      get().pollTaskStatus(taskId);
+    } catch (e) {
+      console.error(e);
+    }
+  },
+
+  refineImage: async (taskId) => {
+    const task = get().activeTasks[taskId];
+    if (!task || !task.result_url) return;
+    
+    try {
+      const res = await fetch('/api/generate/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: taskId }),
+      });
+      if (!res.ok) throw new Error('Refine failed');
+      const data = await res.json();
+      
+      set((state) => ({
+        activeTasks: { 
+          ...state.activeTasks, 
+          [taskId]: { 
+            ...state.activeTasks[taskId], 
+            result_url: data.result_url,
+            status: 'processing',
+          } 
+        },
+      }));
+      
+      get().pollTaskStatus(taskId);
+    } catch (e) {
+      console.error(e);
+    }
+  },
+
+  deleteTask: (taskId) => {
+    set((state) => {
+      const { [taskId]: _, ...rest } = state.activeTasks;
+      return { activeTasks: rest };
+    });
   },
 
   pollTaskStatus: async (taskId) => {

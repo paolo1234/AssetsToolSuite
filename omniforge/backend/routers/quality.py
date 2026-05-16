@@ -9,8 +9,8 @@ from typing import Any, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..processors.quality import QualityProcessor
-from .project import _get_manager
+from processors.quality import QualityProcessor
+from routers.project import _get_manager
 
 router = APIRouter(prefix="/api/quality", tags=["quality"])
 

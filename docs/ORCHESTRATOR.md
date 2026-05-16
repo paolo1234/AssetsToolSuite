@@ -51,6 +51,7 @@ WF01_CORE ─────────┬──→ WF02_AI_ADAPTERS ──→ WF0
 | WF06_QUALITY | 4,6,7,8,9,10,11,12,14 | ✅ DONE | Completato |
 | WF07_ANIMATION_AI | 13,15,16,17 | ✅ DONE | Completato |
 | WF08_ADVANCED | 18,19,20 | ✅ DONE | Completato |
+| WF10_SETTINGS | - | ✅ DONE | Gestione parametri globali |
 
 ---
 
@@ -77,6 +78,26 @@ WF01_CORE ─────────┬──→ WF02_AI_ADAPTERS ──→ WF0
 | Asset library, VFX, item animation, re-export | WF08 | MOD18 |
 | Naming convention, multi-engine export | WF08 | MOD19 |
 | Cutscene, storyboard, dialog portraits | WF08 | MOD20 |
+| Configurazione API, porte, percorsi storage | WF10 | - |
+
+---
+
+## ComfyUI Workflow Presets
+
+I workflow professionali sono in `comfy_workflows/` e vengono caricati automaticamente dall'adapter.
+
+| Preset ID | Nome | Descrizione | Dimensione Default |
+|---|---|---|---|
+| `sprite_single` | Single Sprite | Personaggio, NPC, nemico singolo | 512x512 |
+| `spritesheet_animation` | Spritesheet Animation | Sprite sheet animato (walk, attack, idle) | 1024x1024 |
+| `background_tileable` | Tileable Background | Sfondo seamless per scene | 512x512 |
+| `ui_icon_button` | UI Icon/Button | Elementi UI, icone, bottoni | 256x256 |
+| `prop_item` | Props & Items | Oggetti, armi, artefatti | 512x512 |
+| `tilemap_tileset` | Tileset | Tileset per tilemap | 256x256 |
+| `vfx_particles` | VFX & Particles | Effetti particellari, spell | 512x512 |
+| `character_portrait` | Character Portrait | Ritratti e volti | 512x512 |
+
+**用法:** Passare `workflow_id` nei parametri di generazione.
 
 ---
 
@@ -103,61 +124,64 @@ omniforge/
 │   ├── config.py                # Settings globali
 │   ├── project/
 │   │   ├── manifest.py          # SSOT manifest
+│   │   ├── config_manager.py   # Gestione configurazioni
 │   │   └── versioning.py        # Cronologia asset
 │   ├── adapters/
 │   │   ├── base.py              # AIAdapter ABC
-│   │   ├── comfyui.py
-│   │   ├── dalle.py
-│   │   ├── replicate.py
-│   │   └── audio/
-│   │       ├── audioldm.py
-│   │       └── elevenlabs.py
+│   │   ├── comfyui.py           # ComfyUI con workflow preset
+│   │   └── dalle.py
 │   ├── processors/
 │   │   ├── image.py             # rembg, palette, pixel-art
 │   │   ├── spritesheet.py       # packing, slicing, .tres
 │   │   ├── audio.py             # pydub, loop points
-│   │   ├── checker.py           # Asset Consistency
-│   │   ├── dna.py               # CharacterDNA
-│   │   ├── moveset.py           # Batch generation
-│   │   ├── state_machine.py     # AnimationTree export
-│   │   └── cutscene.py          # Storyboard
+│   │   ├── quality.py           # Quality gate
+│   │   ├── logic.py             # Logica business
+│   │   ├── cutscene.py          # Storyboard
+│   │   └── .py
 │   ├── bridge/
 │   │   └── websocket_server.py
 │   ├── exporters/
-│   │   ├── godot.py
-│   │   ├── unity.py
-│   │   ├── gamemaker.py
-│   │   ├── phaser.py
-│   │   └── generic.py
-│   ├── library/
-│   │   ├── moveset_presets.py
-│   │   └── asset_library.py
-│   └── routers/
+│   │   ├── generic.py
+│   │   └── __init__.py
+│   ├── routers/
 │       ├── images.py
-│       ├── animation.py
+│       ├── animations.py
 │       ├── audio.py
-│       ├── ui_mockup.py
-│       └── project.py
+│       ├── quality.py
+│       ├── logic.py
+│       ├── library.py
+│       ├── bridge.py
+│       └── config.py
+│   └── tests/
 ├── frontend/
 │   ├── src/
+│   │   ├── App.tsx
+│   │   ├── main.tsx
 │   │   ├── store/
 │   │   ├── layouts/
 │   │   │   └── WorkspaceLayout.tsx
-│   │   ├── workspaces/
-│   │   │   ├── ImageWorkspace.tsx
-│   │   │   ├── AnimationWorkspace.tsx
-│   │   │   ├── AudioWorkspace.tsx
-│   │   │   ├── UIWorkspace.tsx
-│   │   │   ├── CheckerWorkspace.tsx
-│   │   │   ├── MovesetWorkspace.tsx
-│   │   │   ├── StateMachineWorkspace.tsx
-│   │   │   ├── CutsceneWorkspace.tsx
-│   │   │   └── LibraryWorkspace.tsx
-│   │   └── components/
+│   │   └── workspaces/
+│   │       ├── ImageWorkspace.tsx
+│   │       ├── AnimationWorkspace.tsx
+│   │       ├── AudioWorkspace.tsx
+│   │       ├── CheckerWorkspace.tsx
+│   │       ├── MovesetWorkspace.tsx
+│   │       ├── StatesWorkspace.tsx
+│   │       ├── CutsceneWorkspace.tsx
+│   │       ├── LibraryWorkspace.tsx
+│   │       └── SettingsWorkspace.tsx
 │   └── electron/
 │       └── main.js
-└── godot_bridge/
-    ├── OmniForgeBridge.gd
-    ├── OmniForge_Sandbox.tscn
-    └── README.md
+├── godot_bridge/
+│   ├── OmniForgeBridge.gd
+│   └── ...
+├── comfy_workflows/             # Workflow ComfyUI professionali
+│   ├── sprite_single.json
+│   ├── spritesheet_animation.json
+│   ├── background_tileable.json
+│   ├── ui_icon_button.json
+│   ├── prop_item.json
+│   ├── tilemap_tileset.json
+│   ├── vfx_particles.json
+│   └── character_portrait.json
 ```

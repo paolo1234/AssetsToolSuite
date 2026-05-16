@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from ..bridge.websocket_server import bridge_server
+from bridge.websocket_server import bridge_server
 
 router = APIRouter(prefix="/api/bridge", tags=["bridge"])
 

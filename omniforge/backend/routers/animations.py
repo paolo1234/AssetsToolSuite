@@ -9,8 +9,8 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..processors.spritesheet import SpritesheetProcessor
-from .project import _get_manager
+from processors.spritesheet import SpritesheetProcessor
+from routers.project import _get_manager
 
 router = APIRouter(prefix="/api/animations", tags=["animations"])
 

@@ -15,15 +15,17 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .config import settings
-from .routers import project as project_router
-from .routers import images as images_router
-from .routers import animations as animation_router
-from .routers import audio as audio_router
-from .routers import bridge as bridge_router
-from .routers import quality as quality_router
-from .routers import logic as logic_router
-from .routers import library as library_router
+from config import settings
+from routers import project as project_router
+from routers import images as images_router
+from bridge.websocket_server import bridge_server
+from routers import animations as animation_router
+from routers import audio as audio_router
+from routers import bridge as bridge_router
+from routers import quality as quality_router
+from routers import logic as logic_router
+from routers import library as library_router
+from routers import config as config_router
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 
@@ -192,16 +194,12 @@ app.include_router(bridge_router.router)
 app.include_router(quality_router.router)
 app.include_router(logic_router.router)
 app.include_router(library_router.router)
+app.include_router(config_router.router)
 
 
 # ── Health Check ─────────────────────────────────────────────────────────────
 
-from .bridge.websocket_server import bridge_server
-
-@app.on_event("startup")
-async def startup_event():
-    # Start the bridge server in the background
-    asyncio.create_task(bridge_server.start())
+# Startup logic moved to lifespan
 
 @app.get("/api/health")
 async def health_check() -> dict[str, Any]:
@@ -254,7 +252,7 @@ async def send_bridge_command(command: dict[str, Any]) -> dict[str, Any]:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "omniforge.backend.main:app",
+        "main:app",
         host=settings.BACKEND_HOST,
         port=settings.BACKEND_PORT,
         reload=True,

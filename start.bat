@@ -4,22 +4,19 @@ echo #      OmniForge Asset Suite - Launcher        #
 echo ################################################
 echo.
 
-:: Avvia il Backend in una nuova finestra
-echo Avvio del Backend...
-start "OmniForge Backend" cmd /k "cd omniforge\backend && set PYTHONPATH=.&& python main.py"
+:: Imposta il percorso del backend per gli import
+set PYTHONPATH=%CD%\omniforge\backend
 
-:: Attendi qualche secondo per il backend
-timeout /t 3 /nobreak >nul
+echo [1/2] Avvio Backend in background...
+start /b cmd /c "cd omniforge\backend && python main.py"
 
-:: Avvia il Frontend in una nuova finestra
-echo Avvio del Frontend...
-start "OmniForge Frontend" cmd /k "cd omniforge\frontend && npm run dev"
+echo [2/2] Avvio Frontend...
+echo.
+echo La suite sara' disponibile a breve su: http://localhost:5173
+echo.
+echo Premi CTRL+C per fermare tutto.
+echo ------------------------------------------------
+echo.
 
-echo.
-echo Suite avviata! 
-echo - Backend: http://localhost:47831
-echo - Frontend: http://localhost:5173
-echo.
-echo Chiudi le finestre dei terminali per fermare i server.
-echo.
-pause
+cd omniforge\frontend
+npm run dev

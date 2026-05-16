@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import List
 from fastapi import APIRouter, HTTPException
-from .project import _get_manager
-from ..processors.logic import StateMachine, Moveset
+from routers.project import _get_manager
+from processors.logic import StateMachine, Moveset
 
 router = APIRouter(prefix="/api/logic", tags=["logic"])
 

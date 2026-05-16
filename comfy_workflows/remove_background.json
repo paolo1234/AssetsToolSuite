@@ -1,0 +1,23 @@
+{
+  "1": {
+    "inputs": {
+      "image": "input_sprite.png",
+      "upload": "image"
+    },
+    "class_type": "LoadImage"
+  },
+  "2": {
+    "inputs": {
+      "model": "u2net",
+      "image": ["1", 0]
+    },
+    "class_type": "Image Rembg (Remove Background)"
+  },
+  "3": {
+    "inputs": {
+      "filename_prefix": "antigravity_removed_bg",
+      "images": ["2", 0]
+    },
+    "class_type": "SaveImage"
+  }
+}

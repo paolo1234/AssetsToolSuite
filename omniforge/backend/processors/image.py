@@ -13,7 +13,7 @@ import numpy as np
 from PIL import Image
 from rembg import remove
 
-from ..project.manifest import ProjectManifest
+from project.manifest import ProjectManifest
 
 
 class PromptBuilder:
@@ -115,3 +115,15 @@ class ImageProcessor:
                     target_height=params.get("height", 64)
                 )
         return current
+
+    @staticmethod
+    def upscale(image_bytes: bytes, scale: int = 4) -> bytes:
+        """Upscale image using LANCZOS for quality."""
+        img = Image.open(io.BytesIO(image_bytes))
+        
+        new_size = (img.width * scale, img.height * scale)
+        upscaled = img.resize(new_size, Image.LANCZOS)
+        
+        out_io = io.BytesIO()
+        upscaled.save(out_io, format="PNG")
+        return out_io.getvalue()

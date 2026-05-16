@@ -9,7 +9,7 @@ import asyncio
 from typing import Any
 
 import httpx
-from .base import AIAdapter, AdapterType, GenerationResult
+from adapters.base import AIAdapter, AdapterType, GenerationResult
 
 
 class DallEAdapter(AIAdapter):

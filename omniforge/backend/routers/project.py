@@ -11,9 +11,9 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from ..config import settings
-from ..project.manifest import AssetEntry, AssetMetadata, ManifestManager, ProjectManifest
-from ..project.versioning import AssetVersionManager
+from config import settings
+from project.manifest import AssetEntry, AssetMetadata, ManifestManager, ProjectManifest
+from project.versioning import AssetVersionManager
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -247,6 +247,21 @@ async def delete_asset(project_id: str, asset_id: str) -> dict[str, str]:
         raise HTTPException(status_code=404, detail="Asset not found")
     return {"status": "deleted", "asset_id": asset_id}
 
+
+@router.get("/{project_id}/assets/{asset_id}/file")
+async def get_asset_file(project_id: str, asset_id: str):
+    """Serve the actual file content for an asset."""
+    from fastapi.responses import FileResponse
+    mgr = _get_manager(project_id)
+    asset = mgr.get_asset_by_id(asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    file_path = mgr.project_dir / asset.file_path
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File missing on disk")
+        
+    return FileResponse(path=file_path)
 
 # ── Versioning ───────────────────────────────────────────────────────────────
 

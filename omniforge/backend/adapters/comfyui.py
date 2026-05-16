@@ -9,9 +9,78 @@ import asyncio
 import json
 import uuid
 import aiohttp
+from pathlib import Path
 from typing import Any, Optional
 
-from .base import AIAdapter, AdapterType, GenerationResult
+from adapters.base import AIAdapter, AdapterType, GenerationResult
+
+
+WORKFLOW_PRESETS = {
+    "sprite_single": {
+        "name": "Single Sprite",
+        "description": "Generate single game sprite (character, NPC, enemy)",
+        "positive_default": "pixel art game character, 2d sprite, isometric view, consistent style",
+        "negative_default": "3d, blurry, low quality, watermark, text, multiple objects",
+        "default_size": (512, 512),
+        "default_steps": 25,
+    },
+    "spritesheet_animation": {
+        "name": "Spritesheet Animation",
+        "description": "Generate animated sprite sheet (walk, attack, idle)",
+        "positive_default": "video game sprite sheet, walk cycle frames, consistent character",
+        "negative_default": "inconsistent frames, bad anatomy, blurry, low quality",
+        "default_size": (1024, 1024),
+        "default_steps": 30,
+    },
+    "background_tileable": {
+        "name": "Tileable Background",
+        "description": "Generate seamless background for game scenes",
+        "positive_default": "game background, forest, atmospheric",
+        "negative_default": "asymmetric, visible seams, gradient, low quality",
+        "default_size": (512, 512),
+        "default_steps": 28,
+    },
+    "ui_icon_button": {
+        "name": "UI Icon/Button",
+        "description": "Generate UI elements (icons, buttons, inventory items)",
+        "positive_default": "game ui icon, clean vector style, flat design",
+        "negative_default": "3d, realistic, shadows, gradients, messy",
+        "default_size": (256, 256),
+        "default_steps": 20,
+    },
+    "prop_item": {
+        "name": "Props & Items",
+        "description": "Generate game props, items, weapons, artifacts",
+        "positive_default": "video game prop, isometric item, glowing sword",
+        "negative_default": "3d, realistic, multiple objects, blurry, photograph",
+        "default_size": (512, 512),
+        "default_steps": 25,
+    },
+    "tilemap_tileset": {
+        "name": "Tileset",
+        "description": "Generate tileable tileset for tilemap editors",
+        "positive_default": "pixel art game tile, grass, stone, ground",
+        "negative_default": "asymmetric, visible seams, broken edges, 3d",
+        "default_size": (256, 256),
+        "default_steps": 25,
+    },
+    "vfx_particles": {
+        "name": "VFX & Particles",
+        "description": "Generate particle effects and spell visuals",
+        "positive_default": "game vfx effect, particle system, magical spell",
+        "negative_default": "static, non-animated, blurry, solid background",
+        "default_size": (512, 512),
+        "default_steps": 25,
+    },
+    "character_portrait": {
+        "name": "Character Portrait",
+        "description": "Generate character portraits and face sprites",
+        "positive_default": "game character portrait, detailed face, consistent style",
+        "negative_default": "3d, realistic, blurry, deformed anatomy, bad proportions",
+        "default_size": (512, 512),
+        "default_steps": 28,
+    },
+}
 
 
 class ComfyUIAdapter(AIAdapter):
@@ -20,9 +89,62 @@ class ComfyUIAdapter(AIAdapter):
     Handles workflow submission, progress tracking via WebSocket, and output retrieval.
     """
 
-    def __init__(self, server_url: str = "http://localhost:8188") -> None:
+    def __init__(self, server_url: str = "http://localhost:8188", workflow_dir: str = None) -> None:
         self.server_url = server_url.rstrip("/")
         self.client_id = str(uuid.uuid4())
+        self.workflow_dir = Path(workflow_dir) if workflow_dir else Path(__file__).parent.parent.parent.parent / "comfy_workflows"
+        self._workflow_cache: dict[str, dict] = {}
+
+    @staticmethod
+    def get_workflow_presets() -> dict:
+        return WORKFLOW_PRESETS
+
+    def load_workflow(self, workflow_id: str) -> Optional[dict]:
+        if workflow_id in self._workflow_cache:
+            return self._workflow_cache[workflow_id]
+        
+        workflow_file = self.workflow_dir / f"{workflow_id}.json"
+        if workflow_file.exists():
+            try:
+                with open(workflow_file, "r") as f:
+                    workflow = json.load(f)
+                    self._workflow_cache[workflow_id] = workflow
+                    return workflow
+            except Exception:
+                pass
+        return None
+
+    def inject_prompt(self, workflow: dict, prompt: str, params: dict) -> dict:
+        injected = json.loads(json.dumps(workflow))
+        
+        preset = WORKFLOW_PRESETS.get(params.get("workflow_id", "sprite_single"))
+        negative = preset.get("negative_default", "low quality") if preset else "low quality"
+        
+        for node_id, node in injected.items():
+            if node.get("class_type") == "CLIPTextEncode":
+                inputs = node.get("inputs", {})
+                text = inputs.get("text", "")
+                if "{{positive_prompt}}" in text:
+                    inputs["text"] = text.replace("{{positive_prompt}}", prompt)
+                elif "text" in inputs and node_id != "7":
+                    inputs["text"] = prompt
+                if "{{negative_prompt}}" in text:
+                    inputs["text"] = text.replace("{{negative_prompt}}", negative)
+            elif node.get("class_type") == "KSampler":
+                inputs = node.get("inputs", {})
+                if "seed" in inputs:
+                    inputs["seed"] = params.get("seed", 42)
+                if "steps" in inputs:
+                    inputs["steps"] = params.get("steps", preset.get("default_steps", 25) if preset else 25)
+                if "cfg" in inputs:
+                    inputs["cfg"] = params.get("cfg", 8)
+            elif node.get("class_type") == "EmptyLatentImage":
+                inputs = node.get("inputs", {})
+                size = preset.get("default_size", (512, 512)) if preset else (512, 512)
+                inputs["width"] = params.get("width", size[0])
+                inputs["height"] = params.get("height", size[1])
+        
+        return injected
 
     def get_name(self) -> str:
         return "ComfyUI Local"
@@ -44,14 +166,20 @@ class ComfyUIAdapter(AIAdapter):
 
     async def generate(self, prompt: str, params: dict[str, Any]) -> GenerationResult:
         """
-        Execute a ComfyUI workflow.
-        In a real scenario, this would load a JSON workflow template and inject the prompt.
+        Execute a ComfyUI workflow using preset templates.
         """
         start_time = asyncio.get_event_loop().time()
         
-        # 1. Prepare simple workflow (example structure)
-        # This is a simplified mock of a ComfyUI API request
-        workflow = params.get("workflow", self._get_default_workflow(prompt, params))
+        workflow_id = params.get("workflow_id", "sprite_single")
+        
+        if workflow_id == "default":
+            workflow = self._get_default_workflow(prompt, params)
+        else:
+            loaded = self.load_workflow(workflow_id)
+            if loaded:
+                workflow = self.inject_prompt(loaded, prompt, params)
+            else:
+                workflow = self._get_default_workflow(prompt, params)
         
         try:
             async with aiohttp.ClientSession() as session:
@@ -128,7 +256,7 @@ class ComfyUIAdapter(AIAdapter):
                 "class_type": "KSampler"
             },
             "4": {
-                "inputs": {"ckpt_name": "v1-5-pruned-emaonly.ckpt"},
+                "inputs": {"ckpt_name": "SD1.5\\v1-5-pruned-emaonly.ckpt"},
                 "class_type": "CheckpointLoaderSimple"
             },
             "5": {

@@ -1,0 +1,16 @@
+{
+  "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "SDXL\\sd_xl_base_1.0.safetensors"}},
+  "2": {"class_type": "LoraLoader", "inputs": {"lora_name": "pixel_art_v1.safetensors", "strength_model": 1.1, "strength_clip": 1, "model": ["1", 0], "clip": ["1", 1]}},
+  "3": {"class_type": "CLIPTextEncode", "inputs": {"text": "game vfx effect, particle system, {{vfx_type}}, {{positive_prompt}}, glowing, magical, spell effect, ui effect, animation-ready", "clip": ["2", 1]}},
+  "4": {"class_type": "CLIPTextEncode", "inputs": {"text": "static, non-animated, blurry, low quality, photograph, watermark, text, solid background", "clip": ["2", 1]}},
+  "5": {"class_type": "EmptyLatentImage", "inputs": {"width": 512, "height": 512, "batch_size": "{{frame_count}}"}},
+  "6": {"class_type": "KSampler", "inputs": {"seed": "{{seed}}", "steps": 25, "cfg": 7, "sampler_name": "dpmpp_2m_karras", "scheduler": "normal", "denoise": 1, "model": ["2", 0], "positive": ["3", 0], "negative": ["4", 0], "latent_image": ["5", 0]}},
+  "7": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["1", 2]}},
+  "8": {"class_type": "GlowEffect", "inputs": {"intensity": 0.8, "color": "{{glow_color}}", "blur_radius": 8, "image": ["7", 0]}},
+  "9": {"class_type": "ImageUpscaleWithModel", "inputs": {"model": "4x_NMKD_Superscale_SP_200000", "image": ["8", 0]}},
+  "10": {"class_type": "ImageScale", "inputs": {"width": 256, "height": 256, "method": "nearest", "image": ["9", 0]}},
+  "11": {"class_type": "ImageBatchToList", "inputs": {"images": ["10", 0]}},
+  "12": {"class_type": "AlphaTrim", "inputs": {"threshold": 10, "images": ["11", 0]}},
+  "13": {"class_type": "SpriteSheetPacker", "inputs": {"frame_width": 256, "frame_height": 256, "images": ["12", 0]}},
+  "14": {"class_type": "SaveImage", "inputs": {"filename_prefix": "omnivfx", "images": ["13", 0]}}
+}

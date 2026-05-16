@@ -3,7 +3,7 @@ os.environ["OMNIFORGE_DATA"] = "test_omniforge_data"
 
 import pytest
 from fastapi.testclient import TestClient
-from omniforge.backend.main import app
+from main import app
 import shutil
 
 client = TestClient(app)

@@ -1,0 +1,9 @@
+{
+  "3": {"class_type": "KSampler", "inputs": {"seed": 123456789, "steps": 25, "cfg": 7.5, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]}},
+  "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "SDXL\\sd_xl_base_1.0.safetensors"}},
+  "5": {"class_type": "EmptyLatentImage", "inputs": {"width": 720, "height": 1024, "batch_size": 1}},
+  "6": {"class_type": "CLIPTextEncode", "inputs": {"text": "Dark fantasy castle dungeon corridor, wide floor with 5 clearly defined stone paths or lanes converging towards a distant archway at the top center, architectural perspective matching a 5-lane mobile game, stone pillars on the sides, purple magical lighting, detailed floor textures, vertical composition, 720x1024, game asset background.", "clip": ["4", 1]}},
+  "7": {"class_type": "CLIPTextEncode", "inputs": {"text": "(worst quality, low quality:1.4), text, signature, watermark, blurry, distorted perspective, people, characters, animals", "clip": ["4", 1]}},
+  "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+  "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "soul_background", "images": ["8", 0]}}
+}

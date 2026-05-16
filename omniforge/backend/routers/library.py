@@ -9,7 +9,7 @@ import shutil
 from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
-from .project import _get_manager
+from routers.project import _get_manager
 
 router = APIRouter(prefix="/api/library", tags=["library"])
 

@@ -10,8 +10,8 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
-from ..processors.audio import AudioProcessor
-from .project import _get_manager
+from processors.audio import AudioProcessor
+from routers.project import _get_manager
 
 router = APIRouter(prefix="/api/audio", tags=["audio"])
 

@@ -12,11 +12,11 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
-from ..config import settings
-from ..adapters.comfyui import ComfyUIAdapter
-from ..adapters.dalle import DallEAdapter
-from ..processors.image import PromptBuilder, ImageProcessor
-from .project import _get_manager
+from config import settings
+from adapters.comfyui import ComfyUIAdapter
+from adapters.dalle import DallEAdapter
+from processors.image import PromptBuilder, ImageProcessor
+from routers.project import _get_manager
 
 router = APIRouter(prefix="/api/generate", tags=["generation"])
 
@@ -27,11 +27,15 @@ class GenerationTask(BaseModel):
     project_id: str
     prompt: str
     adapter_id: str
+    workflow_id: str = "sprite_single"
     params: dict[str, Any] = Field(default_factory=dict)
     status: str = "pending"  # "pending" | "processing" | "completed" | "failed"
     result_url: Optional[str] = None
+    result_bytes: Optional[bytes] = None
     error: Optional[str] = None
     progress: int = 0
+    seed: Optional[int] = None
+    created_at: Optional[int] = None
 
 # Global queue state (in-memory for now)
 active_tasks: dict[str, GenerationTask] = {}
@@ -42,7 +46,17 @@ class GenerateRequest(BaseModel):
     project_id: str
     prompt: str
     adapter_id: str  # "comfyui" | "dalle"
+    workflow_id: str = "sprite_single"
     params: dict[str, Any] = Field(default_factory=dict)
+
+
+class UpscaleRequest(BaseModel):
+    task_id: str
+    scale: int = 4
+
+
+class RefineRequest(BaseModel):
+    task_id: str
 
 
 class ProcessRequest(BaseModel):
@@ -77,7 +91,11 @@ async def run_generation(task_id: str):
             raise ValueError(f"Unknown adapter: {task.adapter_id}")
 
         task.progress = 30
-        result = await adapter.generate(full_prompt, task.params)
+        # Pass workflow_id to adapter
+        generation_params = {**task.params, "workflow_id": task.workflow_id}
+        if task.seed:
+            generation_params["seed"] = task.seed
+        result = await adapter.generate(full_prompt, generation_params)
         
         if not result.success:
             task.status = "failed"
@@ -87,8 +105,8 @@ async def run_generation(task_id: str):
         task.progress = 80
         
         # Save result to project
-        asset_name = f"gen_{task_id[:8]}"
-        file_name = f"{asset_name}.png"
+        asset_id = f"gen_{task_id[:8]}"
+        file_name = f"{asset_id}.png"
         rel_path = f"assets/{file_name}"
         full_path = mgr.project_dir / rel_path
         full_path.parent.mkdir(exist_ok=True)
@@ -96,10 +114,27 @@ async def run_generation(task_id: str):
         with open(full_path, "wb") as f:
             f.write(result.file_bytes)
 
+        # Register asset in manifest
+        from project.manifest import AssetEntry, AssetMetadata
+        new_asset = AssetEntry(
+            id=asset_id,
+            name=f"Generated Image {asset_id}",
+            type="image",
+            category="generated",
+            tags=["ai-generated", task.adapter_id],
+            file_path=rel_path,
+            metadata=AssetMetadata(
+                source="ai_generation",
+                prompt=task.prompt
+            )
+        )
+        mgr.add_asset(new_asset)
+        mgr.save()
+
         # Update task
         task.status = "completed"
         task.progress = 100
-        task.result_url = f"/api/projects/{task.project_id}/assets/{asset_name}" # Placeholder
+        task.result_url = f"/api/projects/{task.project_id}/assets/{asset_id}/file"
 
     except Exception as e:
         task.status = "failed"
@@ -114,11 +149,78 @@ async def start_generation(req: GenerateRequest, background_tasks: BackgroundTas
         project_id=req.project_id,
         prompt=req.prompt,
         adapter_id=req.adapter_id,
-        params=req.params
+        workflow_id=req.workflow_id,
+        params=req.params,
+        seed=req.params.get("seed") or None
     )
     active_tasks[task.id] = task
     
     background_tasks.add_task(run_generation, task.id)
+    
+    return {"task_id": task.id, "status": task.status}
+
+
+@router.post("/upscale")
+async def upscale_image(req: UpscaleRequest):
+    """Upscale an existing generated image."""
+    task = active_tasks.get(req.task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    if not task.result_bytes:
+        # Load from file if not in memory
+        mgr = _get_manager(task.project_id)
+        asset_id = f"gen_{task.id[:8]}"
+        file_path = mgr.project_dir / "assets" / f"{asset_id}.png"
+        if file_path.exists():
+            with open(file_path, "rb") as f:
+                task.result_bytes = f.read()
+    
+    if not task.result_bytes:
+        raise HTTPException(status_code=400, detail="No image to upscale")
+    
+    # Use image processor to upscale
+    from processors.image import ImageProcessor
+    upscaled = ImageProcessor.upscale(task.result_bytes, req.scale)
+    
+    # Save as new version
+    mgr = _get_manager(task.project_id)
+    asset_id = f"gen_{task.id[:8]}_4x"
+    file_path = mgr.project_dir / "assets" / f"{asset_id}.png"
+    file_path.parent.mkdir(exist_ok=True)
+    with open(file_path, "wb") as f:
+        f.write(upscaled)
+    
+    task.result_url = f"/api/projects/{task.project_id}/assets/{asset_id}/file"
+    task.result_bytes = upscaled
+    
+    return {"task_id": task.id, "result_url": task.result_url}
+
+
+@router.post("/refine")
+async def refine_image(req: RefineRequest):
+    """Refine an existing generated image using inpainting."""
+    task = active_tasks.get(req.task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    if not task.result_bytes:
+        mgr = _get_manager(task.project_id)
+        asset_id = f"gen_{task.id[:8]}"
+        file_path = mgr.project_dir / "assets" / f"{asset_id}.png"
+        if file_path.exists():
+            with open(file_path, "rb") as f:
+                task.result_bytes = f.read()
+    
+    if not task.result_bytes:
+        raise HTTPException(status_code=400, detail="No image to refine")
+    
+    # Re-run generation with higher quality settings
+    task.status = "processing"
+    task.progress = 0
+    
+    # Re-run with refine params
+    await run_generation(task.id)
     
     return {"task_id": task.id, "status": task.status}
 

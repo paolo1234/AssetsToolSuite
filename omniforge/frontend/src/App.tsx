@@ -13,6 +13,7 @@ import MovesetWorkspace from './workspaces/MovesetWorkspace';
 import StatesWorkspace from './workspaces/StatesWorkspace';
 import LibraryWorkspace from './workspaces/LibraryWorkspace';
 import CutsceneWorkspace from './workspaces/CutsceneWorkspace';
+import SettingsWorkspace from './workspaces/SettingsWorkspace';
 import { useProjectStore } from './store/projectStore';
 
 // ── Workspace Definitions ────────────────────────────────────────
@@ -27,7 +28,8 @@ type WorkspaceId =
   | 'states'
   | 'statemachine'
   | 'cutscene'
-  | 'library';
+  | 'library'
+  | 'settings';
 
 interface WorkspaceTab {
   id: WorkspaceId;
@@ -46,6 +48,7 @@ const WORKSPACES: WorkspaceTab[] = [
   { id: 'states', label: 'States', icon: '🔀' },
   { id: 'cutscene', label: 'Cutscene', icon: '🎭' },
   { id: 'library', label: 'Library', icon: '📚' },
+  { id: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 
 // ── TopBar Component ─────────────────────────────────────────────
@@ -308,6 +311,7 @@ function CanvasArea({ workspace }: { workspace: WorkspaceId }) {
   if (workspace === 'statemachine') return <StatesWorkspace />;
   if (workspace === 'cutscene') return <CutsceneWorkspace />;
   if (workspace === 'library') return <LibraryWorkspace />;
+  if (workspace === 'settings') return <SettingsWorkspace />;
   
   const label = WORKSPACES.find((w) => w.id === workspace)?.label ?? workspace;
   return (
