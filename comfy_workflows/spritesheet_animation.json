@@ -1,19 +1,9 @@
 {
-  "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "SDXL\\sd_xl_base_1.0.safetensors"}},
-  "2": {"class_type": "LoraLoader", "inputs": {"lora_name": "pixel_art_v1.safetensors", "strength_model": 1.2, "strength_clip": 1, "model": ["1", 0], "clip": ["1", 1]}},
-  "3": {"class_type": "CLIPTextEncode", "inputs": {"text": "{{positive_prompt}}", "clip": ["2", 1]}},
-  "4": {"class_type": "CLIPTextEncode", "inputs": {"text": "multiple characters, inconsistent frames, bad anatomy, deformed, blurry, low quality, text, watermark", "clip": ["2", 1]}},
+  "3": {"class_type": "KSampler", "inputs": {"seed": "{{seed}}", "steps": 30, "cfg": 7.5, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]}},
+  "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "SDXL\\sd_xl_base_1.0.safetensors"}},
   "5": {"class_type": "EmptyLatentImage", "inputs": {"width": 1024, "height": 1024, "batch_size": "{{frames}}"}},
-  "6": {"class_type": "KSampler", "inputs": {"seed": "{{seed}}", "steps": 30, "cfg": 7.5, "sampler_name": "dpmpp_2m_karras", "scheduler": "normal", "denoise": 1, "model": ["2", 0], "positive": ["3", 0], "negative": ["4", 0], "latent_image": ["5", 0]}},
-  "7": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["1", 2]}},
-  "8": {"class_type": "VAEEncodeForInpaint", "inputs": {"pixels": ["7", 0], "vae": ["1", 2], "mask": "mask.png"}},
-  "9": {"class_type": "KSampler", "inputs": {"seed": "{{seed}}", "steps": 15, "cfg": 6, "sampler_name": "euler", "scheduler": "normal", "denoise": 0.7, "model": ["2", 0], "positive": ["3", 0], "negative": ["4", 0], "latent_image": ["8", 0]}},
-  "10": {"class_type": "VAEDecode", "inputs": {"samples": ["9", 0], "vae": ["1", 2]}},
-  "11": {"class_type": "ImageUpscaleWithModel", "inputs": {"model": "4x_NMKD_Superscale_SP_200000", "image": ["10", 0]}},
-  "12": {"class_type": "ImageBatchToList", "inputs": {"images": ["11", 0]}},
-  "13": {"class_type": "IterateImageList", "inputs": {"image_list": ["12", 0]}},
-  "14": {"class_type": "InspyrenetRembg", "inputs": {"torchscript_jit": "default", "image": ["13", 0]}},
-  "15": {"class_type": "CollectImages", "inputs": {"images": ["14", 0]}},
-  "16": {"class_type": "SpritesheetComposer", "inputs": {"columns": 4, "padding": 2, "images": ["15", 0]}},
-  "17": {"class_type": "SaveImage", "inputs": {"filename_prefix": "omnispritesheet", "images": ["16", 0]}}
+  "6": {"class_type": "CLIPTextEncode", "inputs": {"text": "{{positive_prompt}}", "clip": ["4", 1]}},
+  "7": {"class_type": "CLIPTextEncode", "inputs": {"text": "inconsistent frames, bad anatomy, blurry, multiple characters", "clip": ["4", 1]}},
+  "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+  "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "omnispritesheet", "images": ["8", 0]}}
 }

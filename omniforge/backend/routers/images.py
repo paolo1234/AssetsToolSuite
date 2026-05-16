@@ -20,6 +20,24 @@ from routers.project import _get_manager
 
 router = APIRouter(prefix="/api/generate", tags=["generation"])
 
+# ── ComfyUI Status Endpoints ───────────────────────────────────────────────
+
+@router.get("/comfyui/status")
+async def get_comfyui_status():
+    """Get ComfyUI status, available models and workflow compatibility."""
+    adapter = ComfyUIAdapter(server_url=settings.COMFYUI_URL)
+    status = await adapter.get_comfyui_status()
+    return status
+
+
+@router.get("/comfyui/models")
+async def get_available_models():
+    """Get list of available checkpoints/models in ComfyUI."""
+    adapter = ComfyUIAdapter(server_url=settings.COMFYUI_URL)
+    models = await adapter.get_models()
+    return {"models": models}
+
+
 # ── Queue Models ─────────────────────────────────────────────────────────────
 
 class GenerationTask(BaseModel):

@@ -15,6 +15,87 @@ from typing import Any, Optional
 from adapters.base import AIAdapter, AdapterType, GenerationResult
 
 
+class ComfyUIStatus:
+    """Checks ComfyUI availability and installed models/nodes."""
+    
+    def __init__(self, server_url: str = "http://localhost:8188"):
+        self.server_url = server_url.rstrip("/")
+    
+    async def check_health(self) -> bool:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self.server_url}/system_stats") as resp:
+                    return resp.status == 200
+        except Exception:
+            return False
+    
+    async def get_models(self) -> dict:
+        """Get available checkpoints."""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self.server_url}/object_info/CheckpointLoaderSimple") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return data.get("output", {}).get("required", {}).get("ckpt_name", [{}])[0].get("choices", [])
+        except Exception:
+            pass
+        return []
+    
+    async def get_custom_nodes(self) -> list:
+        """Get installed custom nodes."""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self.server_url}/system_stats") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return data.get("plugins", [])
+        except Exception:
+            pass
+        return []
+    
+    async def download_model(self, model_name: str, model_type: str = "checkpoints") -> bool:
+        """Download a model from HuggingFace or other sources."""
+        # This would typically download from HF or CivitAI
+        # For now, return False as actual download needs more setup
+        return False
+
+
+STANDARD_WORKFLOWS = {
+    "sprite_single": {
+        "nodes_required": [],
+        "models_required": [],
+    },
+    "spritesheet_animation": {
+        "nodes_required": [],
+        "models_required": [],
+    },
+    "background_tileable": {
+        "nodes_required": [],
+        "models_required": [],
+    },
+    "ui_icon_button": {
+        "nodes_required": [],
+        "models_required": [],
+    },
+    "prop_item": {
+        "nodes_required": [],
+        "models_required": [],
+    },
+    "tilemap_tileset": {
+        "nodes_required": [],
+        "models_required": [],
+    },
+    "vfx_particles": {
+        "nodes_required": [],
+        "models_required": [],
+    },
+    "character_portrait": {
+        "nodes_required": [],
+        "models_required": [],
+    },
+}
+
+
 WORKFLOW_PRESETS = {
     "sprite_single": {
         "name": "Single Sprite",
@@ -155,6 +236,104 @@ class ComfyUIAdapter(AIAdapter):
     def get_supported_params(self) -> list[str]:
         return ["steps", "cfg", "sampler_name", "scheduler", "denoise", "seed", "workflow_id"]
 
+    async def get_comfyui_status(self) -> dict:
+        """Get ComfyUI status, available models and check workflow compatibility."""
+        status = {
+            "connected": False,
+            "available_models": [],
+            "workflows_compatible": {},
+            "missing_nodes": {},
+            "missing_models": {},
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                # Check connection
+                async with session.get(f"{self.server_url}/system_stats") as resp:
+                    if resp.status == 200:
+                        status["connected"] = True
+                        
+                # Get available models
+                async with session.get(f"{self.server_url}/object_info/CheckpointLoaderSimple") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        choices = data.get("output", {}).get("required", {}).get("ckpt_name", [{}])
+                        if choices:
+                            status["available_models"] = choices[0].get("choices", [])
+                
+                # Check each workflow
+                for wf_id, wf_info in STANDARD_WORKFLOWS.items():
+                    compatible = True
+                    missing_nodes = []
+                    missing_models = []
+                    
+                    # Check nodes
+                    loaded = self.load_workflow(wf_id)
+                    if loaded:
+                        for node_id, node in loaded.items():
+                            class_type = node.get("class_type", "")
+                            if class_type not in ["KSampler", "CheckpointLoaderSimple", "CLIPTextEncode", 
+                                                  "EmptyLatentImage", "VAEDecode", "SaveImage", "VAEEncode",
+                                                  "ImageScale", "LoadImage", "LoraLoader", "ControlNetLoader",
+                                                  "ControlNetApply"]:
+                                missing_nodes.append(class_type)
+                    
+                    status["workflows_compatible"][wf_id] = not missing_nodes
+                    if missing_nodes:
+                        status["missing_nodes"][wf_id] = list(set(missing_nodes))
+                        
+        except Exception as e:
+            status["error"] = str(e)
+            
+        return status
+
+    def get_standard_workflow(self, workflow_id: str, prompt: str, params: dict) -> dict:
+        """Get a workflow that uses only standard nodes (no custom nodes)."""
+        preset = WORKFLOW_PRESETS.get(workflow_id, WORKFLOW_PRESETS["sprite_single"])
+        size = preset.get("default_size", (512, 512))
+        steps = preset.get("default_steps", 25)
+        
+        workflow = {
+            "3": {"class_type": "KSampler", "inputs": {
+                "seed": params.get("seed", 42),
+                "steps": params.get("steps", steps),
+                "cfg": params.get("cfg", 8),
+                "sampler_name": "dpmpp_2m",
+                "scheduler": "karras",
+                "denoise": 1,
+                "model": ["4", 0],
+                "positive": ["6", 0],
+                "negative": ["7", 0],
+                "latent_image": ["5", 0]
+            }},
+            "4": {"class_type": "CheckpointLoaderSimple", "inputs": {
+                "ckpt_name": "SDXL\\sd_xl_base_1.0.safetensors"
+            }},
+            "5": {"class_type": "EmptyLatentImage", "inputs": {
+                "width": params.get("width", size[0]),
+                "height": params.get("height", size[1]),
+                "batch_size": 1
+            }},
+            "6": {"class_type": "CLIPTextEncode", "inputs": {
+                "text": prompt,
+                "clip": ["4", 1]
+            }},
+            "7": {"class_type": "CLIPTextEncode", "inputs": {
+                "text": preset.get("negative_default", "low quality, blurry, watermark"),
+                "clip": ["4", 1]
+            }},
+            "8": {"class_type": "VAEDecode", "inputs": {
+                "samples": ["3", 0],
+                "vae": ["4", 2]
+            }},
+            "9": {"class_type": "SaveImage", "inputs": {
+                "filename_prefix": f"omni_{workflow_id}",
+                "images": ["8", 0]
+            }}
+        }
+        
+        return workflow
+
     async def check_health(self) -> bool:
         """Check if ComfyUI is reachable."""
         try:
@@ -167,19 +346,14 @@ class ComfyUIAdapter(AIAdapter):
     async def generate(self, prompt: str, params: dict[str, Any]) -> GenerationResult:
         """
         Execute a ComfyUI workflow using preset templates.
+        Uses standard-only workflow to avoid missing node errors.
         """
         start_time = asyncio.get_event_loop().time()
         
         workflow_id = params.get("workflow_id", "sprite_single")
         
-        if workflow_id == "default":
-            workflow = self._get_default_workflow(prompt, params)
-        else:
-            loaded = self.load_workflow(workflow_id)
-            if loaded:
-                workflow = self.inject_prompt(loaded, prompt, params)
-            else:
-                workflow = self._get_default_workflow(prompt, params)
+        # Use standard workflow (only built-in nodes) to avoid missing node errors
+        workflow = self.get_standard_workflow(workflow_id, prompt, params)
         
         try:
             async with aiohttp.ClientSession() as session:

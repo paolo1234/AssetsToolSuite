@@ -1,16 +1,9 @@
 {
-  "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "SDXL\\sd_xl_base_1.0.safetensors"}},
-  "2": {"class_type": "LoraLoader", "inputs": {"lora_name": "pixel_art_v1.safetensors", "strength_model": 1.3, "strength_clip": 1, "model": ["1", 0], "clip": ["1", 1]}},
-  "3": {"class_type": "CLIPTextEncode", "inputs": {"text": "tileable seamless game background, {{positive_prompt}}, perfect edge matching, no visible seams, repeating pattern, game environment art", "clip": ["2", 1]}},
-  "4": {"class_type": "CLIPTextEncode", "inputs": {"text": "asymmetric, uneven edges, visible seams, gradient, harsh transitions, low quality, blurry, text", "clip": ["2", 1]}},
+  "3": {"class_type": "KSampler", "inputs": {"seed": "{{seed}}", "steps": 28, "cfg": 8, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]}},
+  "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "SDXL\\sd_xl_base_1.0.safetensors"}},
   "5": {"class_type": "EmptyLatentImage", "inputs": {"width": 512, "height": 512, "batch_size": 1}},
-  "6": {"class_type": "KSampler", "inputs": {"seed": "{{seed}}", "steps": 28, "cfg": 8, "sampler_name": "dpmpp_2m_karras", "scheduler": "normal", "denoise": 1, "model": ["2", 0], "positive": ["3", 0], "negative": ["4", 0], "latent_image": ["5", 0]}},
-  "7": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["1", 2]}},
-  "8": {"class_type": "TileAlign", "inputs": {"image": ["7", 0], "blend_width": 32}},
-  "9": {"class_type": "ImageUpscaleWithModel", "inputs": {"model": "4x_NMKD_Superscale_SP_200000", "image": ["8", 0]}},
-  "10": {"class_type": "ImageScale", "inputs": {"width": 1024, "height": 1024, "method": "lanczos", "image": ["9", 0]}},
-  "11": {"class_type": "ColorMatch", "inputs": {"reference_image": "palette.png", "image": ["10", 0], "mode": "palette_extraction"}},
-  "12": {"class_type": "InspyrenetRembg", "inputs": {"torchscript_jit": "default", "image": ["11", 0]}},
-  "13": {"class_type": "TileTest", "inputs": {"image": ["12", 0], "grid_size": 3}},
-  "14": {"class_type": "SaveImage", "inputs": {"filename_prefix": "omnibusground", "images": ["13", 0]}}
+  "6": {"class_type": "CLIPTextEncode", "inputs": {"text": "tileable seamless game background, {{positive_prompt}}, perfect edge matching, no visible seams", "clip": ["4", 1]}},
+  "7": {"class_type": "CLIPTextEncode", "inputs": {"text": "asymmetric, visible seams, gradient, harsh transitions, low quality", "clip": ["4", 1]}},
+  "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+  "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "omnibusground", "images": ["8", 0]}}
 }
