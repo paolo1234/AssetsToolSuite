@@ -12,6 +12,7 @@ import CheckerWorkspace from './workspaces/CheckerWorkspace';
 import MovesetWorkspace from './workspaces/MovesetWorkspace';
 import StatesWorkspace from './workspaces/StatesWorkspace';
 import LibraryWorkspace from './workspaces/LibraryWorkspace';
+import CutsceneWorkspace from './workspaces/CutsceneWorkspace';
 import { useProjectStore, type Project } from './store/projectStore';
 
 // ── Workspace Definitions ────────────────────────────────────────
@@ -302,6 +303,7 @@ function CanvasArea({ workspace }: { workspace: WorkspaceId }) {
   if (workspace === 'checker') return <CheckerWorkspace />;
   if (workspace === 'moveset') return <MovesetWorkspace />;
   if (workspace === 'states') return <StatesWorkspace />;
+  if (workspace === 'cutscene') return <CutsceneWorkspace />;
   
   const label = WORKSPACES.find((w) => w.id === workspace)?.label ?? workspace;
   return (

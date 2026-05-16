@@ -43,14 +43,14 @@ WF01_CORE ─────────┬──→ WF02_AI_ADAPTERS ──→ WF0
 
 | Workflow | Moduli | Stato | Note |
 |---|---|---|---|
-| WF01_CORE | 0 | 🟡 IN_PROGRESS | Fase 1 — Core infra |
-| WF02_AI_ADAPTERS | 1 | ⚪ NOT_STARTED | Richiede WF01 |
-| WF03_SPRITESHEET | 2 | ⚪ NOT_STARTED | Richiede WF01, WF02 |
-| WF04_AUDIO | 3 | ⚪ NOT_STARTED | Richiede WF01 |
-| WF05_BRIDGE | 5 | ⚪ NOT_STARTED | Richiede WF01 |
-| WF06_QUALITY | 4,6,7,8,9,10,11,12,14 | ⚪ NOT_STARTED | Richiede WF01-WF03 |
-| WF07_ANIMATION_AI | 13,15,16,17 | ⚪ NOT_STARTED | Richiede WF03 |
-| WF08_ADVANCED | 18,19,20 | ⚪ NOT_STARTED | Richiede WF07 |
+| WF01_CORE | 0 | ✅ DONE | Completato |
+| WF02_AI_ADAPTERS | 1 | ✅ DONE | Completato |
+| WF03_SPRITESHEET | 2 | ✅ DONE | Completato |
+| WF04_AUDIO | 3 | ✅ DONE | Completato |
+| WF05_BRIDGE | 5 | ✅ DONE | Completato |
+| WF06_QUALITY | 4,6,7,8,9,10,11,12,14 | ✅ DONE | Completato |
+| WF07_ANIMATION_AI | 13,15,16,17 | ✅ DONE | Completato |
+| WF08_ADVANCED | 18,19,20 | ✅ DONE | Completato |
 
 ---
 
