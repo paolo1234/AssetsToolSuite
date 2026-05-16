@@ -175,6 +175,9 @@ class ComfyUIAdapter(AIAdapter):
         self.client_id = str(uuid.uuid4())
         self.workflow_dir = Path(workflow_dir) if workflow_dir else Path(__file__).parent.parent.parent.parent / "comfy_workflows"
         self._workflow_cache: dict[str, dict] = {}
+        self._generation_lock = asyncio.Lock()
+        self._generating = False
+        self._available_models: list[str] = []
 
     @staticmethod
     def get_workflow_presets() -> dict:
@@ -287,7 +290,23 @@ class ComfyUIAdapter(AIAdapter):
             
         return status
 
-    def get_standard_workflow(self, workflow_id: str, prompt: str, params: dict) -> dict:
+    async def fetch_available_models(self) -> list[str]:
+        """Fetch available checkpoint names from ComfyUI."""
+        if self._available_models:
+            return self._available_models
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self.server_url}/object_info/CheckpointLoaderSimple") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        choices = data.get("output", {}).get("required", {}).get("ckpt_name", [{}, {}])
+                        if len(choices) >= 2:
+                            self._available_models = choices[1].get("choices", [])
+        except Exception:
+            pass
+        return self._available_models
+
+    def get_standard_workflow(self, workflow_id: str, prompt: str, params: dict, model_name: str = "SDXL\\sd_xl_base_1.0.safetensors") -> dict:
         """Get a workflow that uses only standard nodes (no custom nodes)."""
         preset = WORKFLOW_PRESETS.get(workflow_id, WORKFLOW_PRESETS["sprite_single"])
         size = preset.get("default_size", (512, 512))
@@ -307,7 +326,7 @@ class ComfyUIAdapter(AIAdapter):
                 "latent_image": ["5", 0]
             }},
             "4": {"class_type": "CheckpointLoaderSimple", "inputs": {
-                "ckpt_name": "SDXL\\sd_xl_base_1.0.safetensors"
+                "ckpt_name": model_name
             }},
             "5": {"class_type": "EmptyLatentImage", "inputs": {
                 "width": params.get("width", size[0]),
@@ -343,73 +362,90 @@ class ComfyUIAdapter(AIAdapter):
         except Exception:
             return False
 
+    @staticmethod
+    def _pick_model(models: list[str]) -> str:
+        """Pick first available model, preferring pixel/SDXL models."""
+        preferred = ["sd_xl", "sdxl", "sdxl", "pixel", "realistic", "anime"]
+        for pref in preferred:
+            for m in models:
+                if pref in m.lower():
+                    return m
+        if models:
+            return models[0]
+        return "SDXL\\sd_xl_base_1.0.safetensors"
+
     async def generate(self, prompt: str, params: dict[str, Any]) -> GenerationResult:
         """
         Execute a ComfyUI workflow using preset templates.
-        Uses standard-only workflow to avoid missing node errors.
+        Uses generation lock to prevent concurrent requests.
         """
-        start_time = asyncio.get_event_loop().time()
-        
-        workflow_id = params.get("workflow_id", "sprite_single")
-        
-        # Use standard workflow (only built-in nodes) to avoid missing node errors
-        workflow = self.get_standard_workflow(workflow_id, prompt, params)
-        
-        try:
-            async with aiohttp.ClientSession() as session:
-                # 2. Submit prompt
-                payload = {"prompt": workflow, "client_id": self.client_id}
-                async with session.post(f"{self.server_url}/prompt", json=payload) as resp:
-                    if resp.status != 200:
-                        err = await resp.text()
-                        return GenerationResult(success=False, error_message=f"ComfyUI Error: {err}")
-                    
-                    data = await resp.json()
-                    prompt_id = data["prompt_id"]
-
-                # 3. Wait for completion (via polling or websocket)
-                # For brevity, we poll the history
-                while True:
-                    async with session.get(f"{self.server_url}/history/{prompt_id}") as resp:
-                        history = await resp.json()
-                        if prompt_id in history:
-                            break
-                    await asyncio.sleep(1)
-
-                # 4. Extract output
-                outputs = history[prompt_id]["outputs"]
-                # Get first image from first node
-                image_info = None
-                for node_id in outputs:
-                    if "images" in outputs[node_id]:
-                        image_info = outputs[node_id]["images"][0]
-                        break
+        async with self._generation_lock:
+            try:
+                self._generating = True
+                start_time = asyncio.get_event_loop().time()
                 
-                if not image_info:
-                    return GenerationResult(success=False, error_message="No image generated")
+                workflow_id = params.get("workflow_id", "sprite_single")
+                
+                # Auto-detect available model
+                models = await self.fetch_available_models()
+                model_name = self._pick_model(models)
+                
+                # Use standard workflow (only built-in nodes)
+                workflow = self.get_standard_workflow(workflow_id, prompt, params, model_name)
+                async with aiohttp.ClientSession() as session:
+                    # 2. Submit prompt
+                    payload = {"prompt": workflow, "client_id": self.client_id}
+                    async with session.post(f"{self.server_url}/prompt", json=payload) as resp:
+                        if resp.status != 200:
+                            err = await resp.text()
+                            return GenerationResult(success=False, error_message=f"ComfyUI Error: {err}")
+                        
+                        data = await resp.json()
+                        prompt_id = data["prompt_id"]
 
-                # 5. Download image bytes
-                img_params = {
-                    "filename": image_info["filename"],
-                    "subfolder": image_info["subfolder"],
-                    "type": image_info["type"]
-                }
-                async with session.get(f"{self.server_url}/view", params=img_params) as resp:
-                    image_bytes = await resp.read()
+                    # 3. Wait for completion (via polling)
+                    while True:
+                        async with session.get(f"{self.server_url}/history/{prompt_id}") as resp:
+                            history = await resp.json()
+                            if prompt_id in history:
+                                break
+                        await asyncio.sleep(1)
 
-                duration = int((asyncio.get_event_loop().time() - start_time) * 1000)
-                return GenerationResult(
-                    success=True,
-                    file_bytes=image_bytes,
-                    mime_type="image/png",
-                    prompt_used=prompt,
-                    adapter_name=self.get_name(),
-                    duration_ms=duration,
-                    seed=params.get("seed")
-                )
+                    # 4. Extract output
+                    outputs = history[prompt_id]["outputs"]
+                    image_info = None
+                    for node_id in outputs:
+                        if "images" in outputs[node_id]:
+                            image_info = outputs[node_id]["images"][0]
+                            break
+                    
+                    if not image_info:
+                        return GenerationResult(success=False, error_message="No image generated")
 
-        except Exception as e:
-            return GenerationResult(success=False, error_message=str(e))
+                    # 5. Download image bytes
+                    img_params = {
+                        "filename": image_info["filename"],
+                        "subfolder": image_info["subfolder"],
+                        "type": image_info["type"]
+                    }
+                    async with session.get(f"{self.server_url}/view", params=img_params) as resp:
+                        image_bytes = await resp.read()
+
+                    duration = int((asyncio.get_event_loop().time() - start_time) * 1000)
+                    return GenerationResult(
+                        success=True,
+                        file_bytes=image_bytes,
+                        mime_type="image/png",
+                        prompt_used=prompt,
+                        adapter_name=self.get_name(),
+                        duration_ms=duration,
+                        seed=params.get("seed")
+                    )
+
+            except Exception as e:
+                return GenerationResult(success=False, error_message=str(e))
+            finally:
+                self._generating = False
 
     def _get_default_workflow(self, prompt: str, params: dict[str, Any]) -> dict[str, Any]:
         """Simple txt2img workflow for ComfyUI API."""
