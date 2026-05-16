@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import WorkspaceLayout from './layouts/WorkspaceLayout';
 import ImageWorkspace from './workspaces/ImageWorkspace';
+import AnimationWorkspace from './workspaces/AnimationWorkspace';
 import { useProjectStore, type Project } from './store/projectStore';
 
 // ── Workspace Definitions ────────────────────────────────────────
@@ -290,6 +291,7 @@ function Inspector() {
 
 function CanvasArea({ workspace }: { workspace: WorkspaceId }) {
   if (workspace === 'image') return <ImageWorkspace />;
+  if (workspace === 'animation') return <AnimationWorkspace />;
   
   const label = WORKSPACES.find((w) => w.id === workspace)?.label ?? workspace;
   return (
