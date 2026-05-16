@@ -1,11 +1,7 @@
-/**
- * OmniForge — ImageWorkspace
- * AI Image Generation & Inpainting interface.
- */
-
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../store/projectStore';
 import { useImageStore, type GenerationTask } from '../store/imageStore';
+import { useConfigStore } from '../store/configStore';
 
 const WORKFLOW_PRESETS = [
   { id: 'sprite_single', name: 'Single Sprite', icon: '🎮', desc: 'Personaggio, NPC, nemico singolo' },
@@ -23,22 +19,81 @@ export default function ImageWorkspace() {
   const [adapter, setAdapter] = useState('comfyui');
   const [workflowId, setWorkflowId] = useState('sprite_single');
   const [showPresets, setShowPresets] = useState(false);
+  const [comfyuiStatus, setComfyuiStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [connectionError, setConnectionError] = useState('');
   const { currentProject } = useProjectStore();
+  const { config } = useConfigStore();
   const { generateImage, activeTasks, isGenerating, upscaleImage, refineImage, deleteTask } = useImageStore();
 
-  const handleGenerate = () => {
+  const checkComfyUI = useCallback(async () => {
+    if (adapter !== 'comfyui') {
+      setComfyuiStatus('connected');
+      return;
+    }
+    setComfyuiStatus('checking');
+    try {
+      const res = await fetch('/api/generate/comfyui/status');
+      const data = await res.json();
+      if (data.connected) {
+        setComfyuiStatus('connected');
+        setConnectionError('');
+      } else {
+        setComfyuiStatus('disconnected');
+        setConnectionError(`ComfyUI non raggiungibile a ${config?.COMFYUI_URL || 'localhost:8188'}`);
+      }
+    } catch {
+      setComfyuiStatus('disconnected');
+      setConnectionError('Impossibile contattare il backend. Assicurati che il server sia in esecuzione.');
+    }
+  }, [adapter, config?.COMFYUI_URL]);
+
+  useEffect(() => {
+    checkComfyUI();
+    const interval = setInterval(checkComfyUI, 10000);
+    return () => clearInterval(interval);
+  }, [checkComfyUI]);
+
+  const handleGenerate = async () => {
     if (!currentProject || !prompt) return;
-    generateImage(currentProject.id, prompt, adapter, workflowId);
+    if (comfyuiStatus === 'disconnected') {
+      setConnectionError('ComfyUI non è connesso. Verifica le impostazioni in Settings.');
+      return;
+    }
+    setConnectionError('');
+    await generateImage(currentProject.id, prompt, adapter, workflowId);
   };
 
   const tasks = Object.values(activeTasks).filter(
     (t) => t.project_id === currentProject?.id
   );
-
   const completedTasks = tasks.filter(t => t.status === 'completed');
+  const activeGenerations = tasks.filter(t => t.status !== 'completed');
+
+  const statusColor = comfyuiStatus === 'connected' ? 'bg-green-500' 
+    : comfyuiStatus === 'disconnected' ? 'bg-red-500' 
+    : 'bg-yellow-500';
+
+  const statusText = comfyuiStatus === 'connected' ? 'ComfyUI Connesso'
+    : comfyuiStatus === 'disconnected' ? 'ComfyUI Disconnesso'
+    : 'Verifica connessione...';
 
   return (
     <div className="flex flex-col h-full bg-of-bg-900">
+      {/* Connection Status Bar */}
+      <div className={`h-7 flex items-center px-4 text-[10px] font-bold uppercase tracking-widest ${
+        comfyuiStatus === 'connected' ? 'bg-green-900/30 text-green-400'
+        : comfyuiStatus === 'disconnected' ? 'bg-red-900/30 text-red-400'
+        : 'bg-yellow-900/30 text-yellow-400'
+      }`}>
+        <div className={`w-1.5 h-1.5 rounded-full ${statusColor} mr-2 ${comfyuiStatus === 'checking' ? 'animate-pulse' : ''}`} />
+        {statusText}
+        {comfyuiStatus === 'disconnected' && (
+          <span className="ml-4 text-red-500/70 font-normal normal-case">
+            {config?.COMFYUI_URL || 'http://localhost:8188'} - Vai a Settings per cambiare
+          </span>
+        )}
+      </div>
+
       {/* ToolBar */}
       <div className="h-16 border-b border-of-border flex items-center px-4 gap-4 bg-of-bg-800">
         <div className="flex-1 flex gap-2 items-center">
@@ -46,7 +101,7 @@ export default function ImageWorkspace() {
           <div className="relative">
             <button
               onClick={() => setShowPresets(!showPresets)}
-              className="flex items-center gap-2 px-3 py-2 bg-of-bg-900 border border-of-border rounded-md hover:border-of-border-focus transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-of-bg-900 border border-of-border rounded-md hover:border-of-border-focus transition-colors whitespace-nowrap"
             >
               <span>{WORKFLOW_PRESETS.find(w => w.id === workflowId)?.icon}</span>
               <span className="text-xs text-of-text">{WORKFLOW_PRESETS.find(w => w.id === workflowId)?.name}</span>
@@ -89,8 +144,9 @@ export default function ImageWorkspace() {
           </select>
           <button
             onClick={handleGenerate}
-            disabled={isGenerating || !prompt}
+            disabled={isGenerating || !prompt || comfyuiStatus === 'disconnected'}
             className="btn-primary disabled:opacity-50"
+            title={comfyuiStatus === 'disconnected' ? 'ComfyUI non connesso' : ''}
           >
             {isGenerating ? 'Generating...' : 'Generate'}
           </button>
@@ -99,6 +155,14 @@ export default function ImageWorkspace() {
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-auto p-6">
+        {/* Connection Error */}
+        {connectionError && (
+          <div className="mb-6 p-4 bg-red-900/20 border border-red-500/50 text-red-400 rounded-lg text-sm flex items-center gap-3">
+            <span>⚠️</span>
+            <span>{connectionError}</span>
+          </div>
+        )}
+
         {tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-of-text-dim">
             <span className="text-6xl mb-4">🎨</span>
@@ -118,25 +182,31 @@ export default function ImageWorkspace() {
           </div>
         ) : (
           <div className="space-y-8">
-            {/* Active Tasks */}
-            {tasks.filter(t => t.status !== 'completed').length > 0 && (
+            {activeGenerations.length > 0 && (
               <div>
                 <h3 className="text-xs font-bold text-of-text-dim uppercase tracking-widest mb-4">Generating...</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {tasks.filter(t => t.status !== 'completed').map((task) => (
-                    <GenerationCard key={task.id} task={task} onUpscale={upscaleImage} onDelete={deleteTask} />
+                  {activeGenerations.map((task) => (
+                    <GenerationCard key={task.id} task={task} />
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Completed Tasks */}
             {completedTasks.length > 0 && (
               <div>
-                <h3 className="text-xs font-bold text-of-text-dim uppercase tracking-widest mb-4">Generated Assets</h3>
+                <h3 className="text-xs font-bold text-of-text-dim uppercase tracking-widest mb-4">
+                  Generated Assets ({completedTasks.length})
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {completedTasks.map((task) => (
-                    <GenerationCard key={task.id} task={task} onUpscale={upscaleImage} onRefine={refineImage} onDelete={deleteTask} />
+                    <GenerationCard 
+                      key={task.id} 
+                      task={task} 
+                      onUpscale={upscaleImage} 
+                      onRefine={refineImage} 
+                      onDelete={deleteTask} 
+                    />
                   ))}
                 </div>
               </div>
@@ -162,7 +232,6 @@ function GenerationCard({ task, onUpscale, onRefine, onDelete }: {
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      {/* Action Buttons Overlay */}
       {showActions && task.status === 'completed' && (
         <div className="absolute top-2 right-2 z-10 flex gap-1">
           {onUpscale && (

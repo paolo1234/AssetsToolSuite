@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -95,7 +96,9 @@ interface ProjectState {
   clearError: () => void;
 }
 
-export const useProjectStore = create<ProjectState>((set, get) => ({
+export const useProjectStore = create<ProjectState>()(
+  persist(
+    (set, get) => ({
   // Initial state
   projects: [],
   currentProject: null,
@@ -242,4 +245,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   selectAsset: (asset) => set({ selectedAsset: asset }),
   clearError: () => set({ error: null }),
-}));
+}),
+    {
+      name: 'omniforge-project',
+      partialize: (state) => ({
+        projects: state.projects,
+        currentProject: state.currentProject,
+        assets: state.assets,
+        selectedAsset: state.selectedAsset,
+      }),
+    }
+  )
+);

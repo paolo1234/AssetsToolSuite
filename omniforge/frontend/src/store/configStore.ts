@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface GlobalConfig {
   BACKEND_HOST: string;
@@ -28,7 +29,9 @@ interface ConfigState {
   updateConfig: (newSettings: Partial<GlobalConfig>) => Promise<void>;
 }
 
-export const useConfigStore = create<ConfigState>((set) => ({
+export const useConfigStore = create<ConfigState>()(
+  persist(
+    (set) => ({
   config: null,
   isLoading: false,
   error: null,
@@ -63,4 +66,10 @@ export const useConfigStore = create<ConfigState>((set) => ({
       set({ error: err.message, isLoading: false });
     }
   },
-}));
+}),
+    {
+      name: 'omniforge-config',
+      partialize: (state) => ({ config: state.config }),
+    }
+  )
+);
