@@ -285,7 +285,7 @@ async def get_status(task_id: str):
     task = active_tasks.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return task
+    return task.model_dump(exclude={'result_bytes'})
 
 
 @router.post("/process")
