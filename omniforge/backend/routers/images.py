@@ -49,6 +49,7 @@ class GenerationTask(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
     status: str = "pending"  # "pending" | "processing" | "completed" | "failed"
     result_url: Optional[str] = None
+    result_asset_id: Optional[str] = None
     result_bytes: Optional[bytes] = None
     error: Optional[str] = None
     progress: int = 0
@@ -69,12 +70,14 @@ class GenerateRequest(BaseModel):
 
 
 class UpscaleRequest(BaseModel):
-    task_id: str
+    asset_id: str
+    project_id: str
     scale: int = 4
 
 
 class RefineRequest(BaseModel):
-    task_id: str
+    asset_id: str
+    project_id: str
 
 
 class ProcessRequest(BaseModel):
@@ -153,6 +156,7 @@ async def run_generation(task_id: str):
         task.status = "completed"
         task.progress = 100
         task.result_url = f"/api/projects/{task.project_id}/assets/{asset_id}/file"
+        task.result_asset_id = asset_id
 
     except Exception as e:
         task.status = "failed"
@@ -180,67 +184,99 @@ async def start_generation(req: GenerateRequest, background_tasks: BackgroundTas
 
 @router.post("/upscale")
 async def upscale_image(req: UpscaleRequest):
-    """Upscale an existing generated image."""
-    task = active_tasks.get(req.task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    if not task.result_bytes:
-        # Load from file if not in memory
-        mgr = _get_manager(task.project_id)
-        asset_id = f"gen_{task.id[:8]}"
-        file_path = mgr.project_dir / "assets" / f"{asset_id}.png"
-        if file_path.exists():
-            with open(file_path, "rb") as f:
-                task.result_bytes = f.read()
-    
-    if not task.result_bytes:
+    """Upscale an existing project asset."""
+    mgr = _get_manager(req.project_id)
+    asset = mgr.get_asset_by_id(req.asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    file_path = mgr.project_dir / asset.file_path
+    if not file_path.exists():
         raise HTTPException(status_code=400, detail="No image to upscale")
-    
-    # Use image processor to upscale
+
+    with open(file_path, "rb") as f:
+        image_bytes = f.read()
+
     from processors.image import ImageProcessor
-    upscaled = ImageProcessor.upscale(task.result_bytes, req.scale)
-    
-    # Save as new version
-    mgr = _get_manager(task.project_id)
-    asset_id = f"gen_{task.id[:8]}_4x"
-    file_path = mgr.project_dir / "assets" / f"{asset_id}.png"
-    file_path.parent.mkdir(exist_ok=True)
-    with open(file_path, "wb") as f:
+    upscaled = ImageProcessor.upscale(image_bytes, req.scale)
+
+    new_asset_id = f"{req.asset_id}_4x"
+    new_file_name = f"{new_asset_id}.png"
+    new_file_path = mgr.project_dir / "assets" / new_file_name
+    new_file_path.parent.mkdir(exist_ok=True)
+    with open(new_file_path, "wb") as f:
         f.write(upscaled)
-    
-    task.result_url = f"/api/projects/{task.project_id}/assets/{asset_id}/file"
-    task.result_bytes = upscaled
-    
-    return {"task_id": task.id, "result_url": task.result_url}
+
+    from project.manifest import AssetEntry, AssetMetadata
+    new_asset = AssetEntry(
+        id=new_asset_id,
+        name=f"{asset.name} (4x Upscale)",
+        type=asset.type,
+        category=asset.category,
+        tags=asset.tags + ["upscaled"],
+        file_path=f"assets/{new_file_name}",
+        metadata=AssetMetadata(source="upscale", prompt=asset.metadata.prompt)
+    )
+    mgr.add_asset(new_asset)
+    mgr.save()
+
+    return {
+        "asset_id": new_asset_id,
+        "result_url": f"/api/projects/{req.project_id}/assets/{new_asset_id}/file"
+    }
 
 
 @router.post("/refine")
 async def refine_image(req: RefineRequest):
-    """Refine an existing generated image using inpainting."""
-    task = active_tasks.get(req.task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+    """Refine an existing project asset (re-run gen on the image)."""
+    mgr = _get_manager(req.project_id)
+    asset = mgr.get_asset_by_id(req.asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    file_path = mgr.project_dir / asset.file_path
+    if not file_path.exists():
+        raise HTTPException(status_code=400, detail="File not found")
+
+    # Read original image, re-generate as a new asset
+    from processors.image import ImageProcessor
+    with open(file_path, "rb") as f:
+        image_bytes = f.read()
+
+    # Use the original prompt to re-generate
+    prompt = (asset.metadata.prompt if hasattr(asset.metadata, 'prompt') else asset.name) or asset.name
     
-    if not task.result_bytes:
-        mgr = _get_manager(task.project_id)
-        asset_id = f"gen_{task.id[:8]}"
-        file_path = mgr.project_dir / "assets" / f"{asset_id}.png"
-        if file_path.exists():
-            with open(file_path, "rb") as f:
-                task.result_bytes = f.read()
-    
-    if not task.result_bytes:
-        raise HTTPException(status_code=400, detail="No image to refine")
-    
-    # Re-run generation with higher quality settings
-    task.status = "processing"
-    task.progress = 0
-    
-    # Re-run with refine params
-    await run_generation(task.id)
-    
-    return {"task_id": task.id, "status": task.status}
+    # Run a new generation with the prompt
+    adapter = ComfyUIAdapter(server_url=settings.COMFYUI_URL)
+    result = await adapter.generate(f"refined: {prompt}", {"steps": 30, "cfg": 7})
+
+    if not result.success:
+        raise HTTPException(status_code=500, detail=f"Refine failed: {result.error_message}")
+
+    new_asset_id = f"{req.asset_id}_refined"
+    new_file_name = f"{new_asset_id}.png"
+    new_file_path = mgr.project_dir / "assets" / new_file_name
+    new_file_path.parent.mkdir(exist_ok=True)
+    with open(new_file_path, "wb") as f:
+        f.write(result.file_bytes)
+
+    from project.manifest import AssetEntry, AssetMetadata
+    new_asset = AssetEntry(
+        id=new_asset_id,
+        name=f"{asset.name} (Refined)",
+        type=asset.type,
+        category=asset.category,
+        tags=asset.tags + ["refined"],
+        file_path=f"assets/{new_file_name}",
+        metadata=AssetMetadata(source="refine", prompt=prompt)
+    )
+    mgr.add_asset(new_asset)
+    mgr.save()
+
+    return {
+        "asset_id": new_asset_id,
+        "result_url": f"/api/projects/{req.project_id}/assets/{new_asset_id}/file"
+    }
 
 
 @router.get("/status/{task_id}")
