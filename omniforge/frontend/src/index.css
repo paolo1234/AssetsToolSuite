@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base ──────────────────────────────────────────────────────── */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #141720;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2f42;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3f52;
+}
+
+/* ── Custom Utilities ─────────────────────────────────────────── */
+
+@layer components {
+  .panel {
+    @apply bg-of-surface border border-of-border rounded-lg;
+  }
+
+  .panel-header {
+    @apply flex items-center justify-between px-3 py-2 
+           border-b border-of-border text-sm font-medium text-of-text-muted;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 rounded-md font-medium text-sm 
+           bg-of-accent hover:bg-of-accent-hover 
+           text-white transition-all duration-150
+           active:scale-[0.97];
+  }
+
+  .btn-ghost {
+    @apply px-3 py-1.5 rounded-md text-sm text-of-text-muted
+           hover:bg-of-surface-hover hover:text-of-text
+           transition-all duration-150;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 rounded-md text-sm
+           bg-of-bg-800 border border-of-border
+           text-of-text placeholder:text-of-text-dim
+           focus:border-of-border-focus focus:outline-none
+           transition-colors duration-150;
+  }
+
+  .workspace-tab {
+    @apply px-4 py-2 text-sm font-medium text-of-text-muted
+           hover:text-of-text hover:bg-of-surface-hover
+           transition-all duration-150 cursor-pointer
+           border-b-2 border-transparent;
+  }
+
+  .workspace-tab-active {
+    @apply text-of-accent border-b-2 border-of-accent;
+  }
+}
