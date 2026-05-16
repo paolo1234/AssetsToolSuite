@@ -50,7 +50,7 @@ class Settings:
         self.load_from_disk()
 
     def load_from_disk(self) -> None:
-        """Load settings from user_config.json, overriding defaults/env."""
+        """Load settings from disk, overriding defaults/env."""
         data = self._manager.load()
         for key, value in data.items():
             if hasattr(self, key):
@@ -59,11 +59,13 @@ class Settings:
                 else:
                     setattr(self, key, value)
         
-        # Env vars still take precedence if set and not in disk
-        if not data.get("OPENAI_API_KEY"):
-            self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", self.OPENAI_API_KEY)
-        if not data.get("COMFYUI_URL"):
-            self.COMFYUI_URL = os.getenv("COMFYUI_URL", self.COMFYUI_URL)
+        # Env vars still take precedence if set
+        if os.getenv("OMNIFORGE_DATA"):
+            self.PROJECTS_DIR = Path(os.environ["OMNIFORGE_DATA"]) / "projects"
+        if os.getenv("OPENAI_API_KEY"):
+            self.OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+        if os.getenv("COMFYUI_URL"):
+            self.COMFYUI_URL = os.environ["COMFYUI_URL"]
 
     def update(self, new_settings: dict[str, Any]) -> None:
         """Update settings and persist to disk."""

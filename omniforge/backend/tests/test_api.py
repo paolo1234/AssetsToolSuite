@@ -18,7 +18,7 @@ def setup_test_env():
     os.environ["OMNIFORGE_DATA"] = test_data_dir
     yield
     # Cleanup after tests
-    # shutil.rmtree(test_data_dir)
+    shutil.rmtree(test_data_dir)
 
 def test_health_check():
     response = client.get("/api/health")

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useConfigStore, GlobalConfig } from '../store/configStore';
-import { FiSave, FiServer, FiCpu, FiFolder, FiLock } from 'react-icons/fi';
+import { FiSave, FiServer, FiFolder, FiLock } from 'react-icons/fi';
 
 const SettingsWorkspace: React.FC = () => {
   const { config, isLoading, error, fetchConfig, updateConfig } = useConfigStore();
