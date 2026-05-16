@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .routers import project as project_router
+from .routers import images as images_router
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 
@@ -178,6 +179,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(project_router.router)
+app.include_router(images_router.router)
 
 
 # ── Health Check ─────────────────────────────────────────────────────────────

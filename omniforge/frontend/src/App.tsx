@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import WorkspaceLayout from './layouts/WorkspaceLayout';
+import ImageWorkspace from './workspaces/ImageWorkspace';
 import { useProjectStore, type Project } from './store/projectStore';
 
 // ── Workspace Definitions ────────────────────────────────────────
@@ -288,6 +289,8 @@ function Inspector() {
 // ── Canvas Placeholder ───────────────────────────────────────────
 
 function CanvasArea({ workspace }: { workspace: WorkspaceId }) {
+  if (workspace === 'image') return <ImageWorkspace />;
+  
   const label = WORKSPACES.find((w) => w.id === workspace)?.label ?? workspace;
   return (
     <div className="flex items-center justify-center h-full">
