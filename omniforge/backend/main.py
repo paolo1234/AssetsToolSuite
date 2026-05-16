@@ -19,6 +19,7 @@ from .config import settings
 from .routers import project as project_router
 from .routers import images as images_router
 from .routers import animations as animation_router
+from .routers import audio as audio_router
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 
@@ -182,6 +183,7 @@ app.add_middleware(
 app.include_router(project_router.router)
 app.include_router(images_router.router)
 app.include_router(animation_router.router)
+app.include_router(audio_router.router)
 
 
 # ── Health Check ─────────────────────────────────────────────────────────────
