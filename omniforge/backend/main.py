@@ -21,6 +21,7 @@ from .routers import images as images_router
 from .routers import animations as animation_router
 from .routers import audio as audio_router
 from .routers import bridge as bridge_router
+from .routers import quality as quality_router
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 
@@ -186,6 +187,7 @@ app.include_router(images_router.router)
 app.include_router(animation_router.router)
 app.include_router(audio_router.router)
 app.include_router(bridge_router.router)
+app.include_router(quality_router.router)
 
 
 # ── Health Check ─────────────────────────────────────────────────────────────
