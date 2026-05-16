@@ -9,6 +9,8 @@ import ImageWorkspace from './workspaces/ImageWorkspace';
 import AnimationWorkspace from './workspaces/AnimationWorkspace';
 import AudioWorkspace from './workspaces/AudioWorkspace';
 import CheckerWorkspace from './workspaces/CheckerWorkspace';
+import MovesetWorkspace from './workspaces/MovesetWorkspace';
+import StatesWorkspace from './workspaces/StatesWorkspace';
 import { useProjectStore, type Project } from './store/projectStore';
 
 // ── Workspace Definitions ────────────────────────────────────────
@@ -296,6 +298,8 @@ function CanvasArea({ workspace }: { workspace: WorkspaceId }) {
   if (workspace === 'animation') return <AnimationWorkspace />;
   if (workspace === 'audio') return <AudioWorkspace />;
   if (workspace === 'checker') return <CheckerWorkspace />;
+  if (workspace === 'moveset') return <MovesetWorkspace />;
+  if (workspace === 'states') return <StatesWorkspace />;
   
   const label = WORKSPACES.find((w) => w.id === workspace)?.label ?? workspace;
   return (
