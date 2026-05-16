@@ -26,6 +26,7 @@ from routers import quality as quality_router
 from routers import logic as logic_router
 from routers import library as library_router
 from routers import config as config_router
+from routers import importer as importer_router
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 
@@ -195,6 +196,7 @@ app.include_router(quality_router.router)
 app.include_router(logic_router.router)
 app.include_router(library_router.router)
 app.include_router(config_router.router)
+app.include_router(importer_router.router)
 
 
 # ── Health Check ─────────────────────────────────────────────────────────────

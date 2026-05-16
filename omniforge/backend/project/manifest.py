@@ -27,6 +27,11 @@ class AssetMetadata(BaseModel):
     loop_in: Optional[int] = None
     loop_out: Optional[int] = None
     duration_ms: Optional[int] = None
+    resolution: Optional[str] = None
+    source: Optional[str] = None
+    prompt: Optional[str] = None
+    original_path: Optional[str] = None
+    original_size_kb: Optional[float] = None
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
